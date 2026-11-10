@@ -27,7 +27,7 @@ export default function Welcome({ onPick }: { onPick: (text: string) => void }) 
 
       <div>
         <div className="mb-2 text-center text-xs uppercase tracking-wide text-neutral-400">Seven tools</div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 xl:grid-cols-3">
           {TOOL_NAMES.map((n) => (
             <div key={n} className="card space-y-1 p-3">
               <div className="flex items-center gap-1.5 text-neutral-500"><ToolIcon name={n} size={14} />
