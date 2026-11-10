@@ -19,6 +19,7 @@ providers:
         content-type: application/json
         x-api-key: "{{ env.ANTHROPIC_API_KEY }}"
       body:
+        provider: anthropic
         model: claude-sonnet-5-5
         messages:
           - role: user

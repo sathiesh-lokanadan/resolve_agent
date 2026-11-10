@@ -1,11 +1,12 @@
 # Resolve
 
-A ticket-resolution chatbot for support agents at a cloud accounting provider. Claude looks up real (sample) data with tools, every tool call is shown, and a human approves every reply, refund, bug ticket or escalation before anything goes out.
+A ticket-resolution chatbot for support agents at a cloud accounting provider. A model (Claude, GPT or Gemini, your choice) looks up real (sample) data with tools, every tool call is shown, and a human approves every reply, refund, bug ticket or escalation before anything goes out.
 
 - Next.js (App Router), TypeScript, Tailwind, `@anthropic-ai/sdk` tool use. No database, no login.
 - Customers, tickets and the article source text live in typed JSON fixtures in `lib/data/` (3 customers, 12 KB articles, 8 tickets). Customer lookups read those files directly.
 - `search_kb` is RAG: the query is embedded with `gte-small` (a Supabase Edge Function) and the closest articles are found by cosine similarity in Postgres with `pgvector`. The sample "today" is frozen at 2026-11-10 so refund-window checks are repeatable.
-- Paste your own Anthropic API key in the page. It stays in `sessionStorage`, goes to the backend as an `x-api-key` header, and is never saved or logged.
+- Pick a provider (Anthropic, OpenAI or Google), a model, and paste your own API key for that provider. Keys stay in `sessionStorage` (one per provider), go to the backend as an `x-api-key` header, and are never saved or logged. Choose "Other model id" to type any model id the provider accepts.
+- Anthropic uses `@anthropic-ai/sdk` (tool use). OpenAI (Chat Completions) and Gemini (`generateContent`) function calling are plain `fetch` calls in `lib/providers/`. All three share one agent loop, the same seven tools and the same validators. `OPENAI_BASE_URL` and `GEMINI_BASE_URL` can override the API endpoints.
 
 ```bash
 npm install
@@ -29,8 +30,8 @@ Seven tools: `route_ticket`, `search_kb`, `lookup_customer` (read) and `draft_re
 
 - `draft_reply`: rejected for unknown KB ids, unredacted email/phone/card, or more than 120 words.
 - `issue_refund`: rejected if the order is older than 30 days or the amount exceeds the refundable balance; over 200 USD returns `needs_human`.
-- Rejections go back to Claude with the reason, up to 3 tries per tool.
-- Emails, phone and card numbers are redacted in every tool result (and tool arguments and the answer) before they reach Claude or the screen.
+- Rejections go back to the model with the reason, up to 3 tries per tool.
+- Emails, phone and card numbers are redacted in every tool result (and tool arguments and the answer) before they reach the model or the screen.
 
 ## Layout
 

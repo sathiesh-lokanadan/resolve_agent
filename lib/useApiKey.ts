@@ -1,31 +1,36 @@
 import { useCallback, useSyncExternalStore } from "react";
+import type { Provider } from "./types";
 
-const KEY = "resolve.apiKey";
 const listeners = new Set<() => void>();
+const storageKey = (provider: Provider) => `resolve.apiKey.${provider}`;
 
-function read(): string {
-  try {
-    return sessionStorage.getItem(KEY) ?? "";
-  } catch {
-    return "";
-  }
+function subscribe(cb: () => void) {
+  listeners.add(cb);
+  return () => void listeners.delete(cb);
 }
 
-/** The API key lives in sessionStorage only: it is gone when the tab closes. */
-export function useApiKey() {
-  const key = useSyncExternalStore(
-    (cb) => (listeners.add(cb), () => listeners.delete(cb)),
-    read,
-    () => "",
-  );
-  const setKey = useCallback((value: string) => {
+/** One key per provider, kept in sessionStorage only: gone when the tab closes. */
+export function useApiKey(provider: Provider) {
+  const read = useCallback(() => {
     try {
-      if (value) sessionStorage.setItem(KEY, value);
-      else sessionStorage.removeItem(KEY);
+      return sessionStorage.getItem(storageKey(provider)) ?? "";
     } catch {
-      /* storage unavailable */
+      return "";
     }
-    listeners.forEach((l) => l());
-  }, []);
+  }, [provider]);
+  const key = useSyncExternalStore(subscribe, read, () => "");
+
+  const setKey = useCallback(
+    (value: string) => {
+      try {
+        if (value) sessionStorage.setItem(storageKey(provider), value);
+        else sessionStorage.removeItem(storageKey(provider));
+      } catch {
+        /* storage unavailable */
+      }
+      listeners.forEach((l) => l());
+    },
+    [provider],
+  );
   return [key, setKey] as const;
 }

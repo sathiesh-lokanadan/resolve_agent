@@ -1,12 +1,14 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { runAgent } from "@/lib/agent";
-import { MODELS, type StreamEvent, type Turn } from "@/lib/types";
+import { createSession, describeError } from "@/lib/providers";
+import { MODEL_ID_PATTERN, PROVIDERS, type Provider, type StreamEvent, type Turn } from "@/lib/types";
 
 export const maxDuration = 120;
 
-function parseBody(body: unknown): { model: string; turns: Turn[] } | string {
-  const b = body as { model?: unknown; messages?: unknown } | null;
-  if (!b || !MODELS.some((m) => m.id === b.model)) return "Unknown model.";
+function parseBody(body: unknown): { provider: Provider; model: string; turns: Turn[] } | string {
+  const b = body as { provider?: unknown; model?: unknown; messages?: unknown } | null;
+  const provider = (b?.provider ?? "anthropic") as Provider;
+  if (!PROVIDERS.includes(provider)) return "Unknown provider.";
+  if (typeof b?.model !== "string" || !MODEL_ID_PATTERN.test(b.model)) return "Unknown or invalid model id.";
   const list = b.messages;
   if (!Array.isArray(list) || !list.length || list.length > 40) return "messages must be a list of 1 to 40 turns.";
   const turns: Turn[] = [];
@@ -15,26 +17,17 @@ function parseBody(body: unknown): { model: string; turns: Turn[] } | string {
     if (!ok) return "Each message needs a role and text (max 12000 characters).";
     turns.push({ role: m.role, content: m.content });
   }
-  return turns[turns.length - 1].role === "user" ? { model: b.model as string, turns } : "The last message must be from the user.";
-}
-
-function describe(err: unknown, apiKey: string): string {
-  if (err instanceof Anthropic.AuthenticationError) return "Anthropic rejected the API key.";
-  if (err instanceof Anthropic.PermissionDeniedError) return "This API key is not allowed to use that model.";
-  if (err instanceof Anthropic.RateLimitError) return "Rate limited by Anthropic. Wait a moment and try again.";
-  if (err instanceof Anthropic.APIConnectionError) return "Could not reach the Anthropic API.";
-  const msg = err instanceof Error ? err.message : "Unexpected error.";
-  return msg.split(apiKey).join("[key]");
+  return turns[turns.length - 1].role === "user" ? { provider, model: b.model, turns } : "The last message must be from the user.";
 }
 
 export async function POST(req: Request) {
   const apiKey = req.headers.get("x-api-key")?.trim();
-  if (!apiKey) return Response.json({ error: "Add your Anthropic API key first." }, { status: 401 });
+  if (!apiKey) return Response.json({ error: "Add your API key first." }, { status: 401 });
 
   const parsed = parseBody(await req.json().catch(() => null));
   if (typeof parsed === "string") return Response.json({ error: parsed }, { status: 400 });
 
-  const client = new Anthropic({ apiKey, maxRetries: 1 });
+  const { provider, model, turns } = parsed;
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -47,9 +40,10 @@ export async function POST(req: Request) {
         }
       };
       try {
-        await runAgent({ client, model: parsed.model, turns: parsed.turns, emit, signal: req.signal });
+        const session = createSession(provider, { apiKey, model, turns, signal: req.signal });
+        await runAgent({ session, emit, signal: req.signal });
       } catch (err) {
-        if (!req.signal.aborted) emit({ type: "error", message: describe(err, apiKey) });
+        if (!req.signal.aborted) emit({ type: "error", message: describeError(err, provider, apiKey) });
       }
       emit({ type: "done" });
       try {

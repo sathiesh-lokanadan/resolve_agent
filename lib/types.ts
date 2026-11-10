@@ -65,13 +65,42 @@ export interface ChatMessage {
   calls: CallView[];
   status: "working" | "done" | "stopped" | "error";
   error?: string;
+  /** Which provider and model produced this turn, for the tool log. */
+  via?: string;
 }
 
-export const MODELS = [
-  { id: "claude-sonnet-5-5", label: "Sonnet 5.5" },
-  { id: "claude-haiku-5-5", label: "Haiku 5.5" },
-] as const;
-export type ModelId = (typeof MODELS)[number]["id"];
+export const PROVIDERS = ["anthropic", "openai", "google"] as const;
+export type Provider = (typeof PROVIDERS)[number];
+
+export const PROVIDER_INFO: Record<Provider, { label: string; keyLabel: string; keyHint: string }> = {
+  anthropic: { label: "Anthropic", keyLabel: "Anthropic API key", keyHint: "sk-ant-…" },
+  openai: { label: "OpenAI", keyLabel: "OpenAI API key", keyHint: "sk-…" },
+  google: { label: "Google", keyLabel: "Google AI Studio API key", keyHint: "AIza…" },
+};
+
+export const MODELS: Record<Provider, { id: string; label: string }[]> = {
+  anthropic: [
+    { id: "claude-sonnet-5-5", label: "Sonnet 5.5" },
+    { id: "claude-haiku-5-5", label: "Haiku 5.5" },
+  ],
+  openai: [
+    { id: "gpt-5", label: "GPT-5" },
+    { id: "gpt-5-mini", label: "GPT-5 mini" },
+  ],
+  google: [
+    { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+  ],
+};
+
+export const DEFAULT_MODEL: Record<Provider, string> = {
+  anthropic: "claude-sonnet-5-5",
+  openai: "gpt-5-mini",
+  google: "gemini-2.5-flash",
+};
+
+/** Model ids are typed into a URL or request body, so only plain characters are allowed. */
+export const MODEL_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/;
 
 export interface Turn {
   role: "user" | "assistant";

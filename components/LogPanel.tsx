@@ -47,7 +47,7 @@ export default function LogPanel({ messages, open, onClose }: { messages: ChatMe
         )}
         {turns.map((m, i) => (
           <section key={m.id} className="space-y-2">
-            <div className="px-1 text-[11px] uppercase tracking-wide text-neutral-400">Turn {i + 1}</div>
+            <div className="truncate px-1 text-[11px] uppercase tracking-wide text-neutral-400">Turn {i + 1}{m.via ? ` · ${m.via}` : ""}</div>
             <StepList m={m} />
             {m.calls.map((c) => <ToolCallCard key={c.id} call={c} />)}
           </section>

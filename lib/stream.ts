@@ -1,10 +1,11 @@
-import type { ApprovalState, ChatMessage, ModelId, StreamEvent, Turn } from "./types";
+import type { ApprovalState, ChatMessage, Provider, StreamEvent, Turn } from "./types";
 import { ACTION_TOOLS } from "./types";
 
 /** POST the chat to the backend and call onEvent for each newline-delimited JSON event. */
 export async function streamResolve(opts: {
   apiKey: string;
-  model: ModelId;
+  provider: Provider;
+  model: string;
   messages: Turn[];
   signal: AbortSignal;
   onEvent: (event: StreamEvent) => void;
@@ -12,7 +13,7 @@ export async function streamResolve(opts: {
   const res = await fetch("/api/resolve", {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": opts.apiKey },
-    body: JSON.stringify({ model: opts.model, messages: opts.messages }),
+    body: JSON.stringify({ provider: opts.provider, model: opts.model, messages: opts.messages }),
     signal: opts.signal,
   });
   if (!res.ok || !res.body) {
