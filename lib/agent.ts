@@ -68,7 +68,7 @@ export async function runAgent({ client, model, turns, emit, signal }: Options) 
       emit({ type: "step", label: `Calling ${use.name}` });
       emit({ type: "tool_start", id: use.id, name: use.name, args: redactDeep(use.input) });
       const t0 = Date.now();
-      const result = redactDeep(runTool(use.name, use.input, ctx));
+      const result = redactDeep(await runTool(use.name, use.input, ctx));
       emit({ type: "tool_end", id: use.id, name: use.name, ms: Date.now() - t0, result });
       if (result.status === "pending_approval" && isActionTool(use.name))
         emit({ type: "approval", id: use.id, name: use.name, action: result.data });

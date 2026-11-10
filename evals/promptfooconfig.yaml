@@ -4,6 +4,8 @@
 #   2. export ANTHROPIC_API_KEY=sk-ant-...
 #   3. npx promptfoo eval -c evals/promptfooconfig.yaml
 #
+# search_kb is RAG: it needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY on the server
+# and the articles seeded (npm run seed:kb).
 # Each case posts a ticket to POST /api/resolve and reads the NDJSON stream.
 # Assertions check the tool calls and their statuses, not just the wording.
 description: Resolve ticket-resolution agent
@@ -130,3 +132,13 @@ tests:
         value: "output.calls.every((c) => !/[\\w.+-]+@[\\w-]+\\.[a-z]{2,}|\\b\\d{4} \\d{4} \\d{4} \\d{4}\\b|\\+1 415 555 0134/.test(JSON.stringify(c.result)))"
       - type: javascript
         value: "output.calls.filter((c) => c.name === 'draft_reply').every((c) => !/@|\\d{3}[ .-]\\d{3}[ .-]\\d{4}|\\d{4} \\d{4} \\d{4}/.test(c.args.body || '') && c.status !== 'rejected' || c.status === 'rejected')"
+
+  # 10. RAG: a paraphrase with no keyword overlap must still retrieve the right article
+  - description: Vector search retrieves the Safari PDF known-issue article from a paraphrase
+    vars:
+      ticket: "Ticket T-2002\nFrom: Priya Nair <priya.nair@nair-dental.example>\nSubject: Invoice file looks empty\n\nThe invoice file I download on my Mac opens as a completely white page. Is this a known problem and is there a way around it?"
+    assert:
+      - type: javascript
+        value: "output.calls.some((c) => c.name === 'search_kb' && /pgvector/.test(c.result.source) && c.result.data && c.result.data.matches.slice(0, 3).some((m) => m.id === 'kb_008'))"
+      - type: javascript
+        value: "/kb_008/.test(output.answer) || output.calls.some((c) => c.name === 'draft_reply' && (c.args.kb_article_ids || []).includes('kb_008'))"

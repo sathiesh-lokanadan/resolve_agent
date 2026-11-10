@@ -24,8 +24,8 @@ export const TOOL_DEFS: Anthropic.Tool[] = [
   {
     name: "search_kb",
     description:
-      "Search the help-centre knowledge base by keywords. Returns the top 3 articles (id, title, text). Use it for every policy, price or how-to fact.",
-    input_schema: obj({ query: { type: "string", description: "A few keywords" } }, ["query"]),
+      "Semantic (vector) search of the help-centre knowledge base. Returns the 3 closest articles with id, title, similarity (0 to 1) and text. Closest is not the same as relevant: state a rule only if the returned text contains it. Use it for every policy, price or how-to fact.",
+    input_schema: obj({ query: { type: "string", description: "The question or topic in plain words" } }, ["query"]),
   },
   {
     name: "lookup_customer",

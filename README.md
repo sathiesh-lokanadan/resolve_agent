@@ -3,13 +3,23 @@
 A ticket-resolution chatbot for support agents at a cloud accounting provider. Claude looks up real (sample) data with tools, every tool call is shown, and a human approves every reply, refund, bug ticket or escalation before anything goes out.
 
 - Next.js (App Router), TypeScript, Tailwind, `@anthropic-ai/sdk` tool use. No database, no login.
-- Data lives in typed JSON fixtures in `lib/data/` (3 customers, 12 KB articles, 8 tickets). The sample "today" is frozen at 2026-11-10 so refund-window checks are repeatable.
+- Customers, tickets and the article source text live in typed JSON fixtures in `lib/data/` (3 customers, 12 KB articles, 8 tickets). Customer lookups read those files directly.
+- `search_kb` is RAG: the query is embedded with `gte-small` (a Supabase Edge Function) and the closest articles are found by cosine similarity in Postgres with `pgvector`. The sample "today" is frozen at 2026-11-10 so refund-window checks are repeatable.
 - Paste your own Anthropic API key in the page. It stays in `sessionStorage`, goes to the backend as an `x-api-key` header, and is never saved or logged.
 
 ```bash
 npm install
 npm run dev   # http://localhost:3000
 ```
+
+## Knowledge-base setup (Supabase)
+
+1. Add the Supabase integration from the Vercel Marketplace (or create a Supabase project). The app reads `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`; copy `.env.example` to `.env.local` for local use.
+2. Run `supabase/migrations/001_kb_articles.sql` in the SQL editor (table, HNSW index, `match_kb_articles` function; row-level security is on, so only the service role can read it).
+3. Deploy the embedding function: `supabase functions deploy embed`.
+4. Seed the articles: `npm run seed:kb`. It embeds each article in `lib/data/articles.json`, upserts it, and removes rows no longer in the file. Re-run after editing the articles.
+
+If Supabase is missing or fails, `search_kb` returns an error that says so; it does not fall back to made-up or keyword results. `KB_MIN_SIMILARITY` (optional) drops weak matches.
 
 ## How it works
 
@@ -24,4 +34,4 @@ Seven tools: `route_ticket`, `search_kb`, `lookup_customer` (read) and `draft_re
 
 ## Layout
 
-`app/page.tsx` chat · `components/` screen parts · `app/api/resolve/route.ts` the route · `lib/` tools, validators, redactor, agent loop, stream reader, presets · `lib/data/` fixtures · `evals/promptfooconfig.yaml` promptfoo cases (not run in CI).
+`app/page.tsx` chat · `components/` screen parts · `app/api/resolve/route.ts` the route · `lib/` tools, retrieval (`kb.ts`), validators, redactor, agent loop, stream reader, presets · `supabase/` migration and embedding function · `scripts/seed-kb.ts` · `lib/data/` fixtures · `evals/promptfooconfig.yaml` promptfoo cases (not run in CI).

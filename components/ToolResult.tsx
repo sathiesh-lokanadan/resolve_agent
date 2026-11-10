@@ -7,7 +7,13 @@ function Body({ r }: { r: ToolEnvelope }) {
   const data = r.data as any;
   if (r.status === "ok" || r.status === "pending_approval") {
     if (r.tool === "route_ticket") return <RoutingBadge {...(data as Routing)} />;
-    if (r.tool === "search_kb") return <KbChips matches={data.matches} />;
+    if (r.tool === "search_kb")
+      return (
+        <div className="space-y-1.5">
+          <KbChips matches={data.matches} />
+          <p className="text-[11px] text-neutral-400">Retrieved by {data.method}. Hover a chip to read the passage.</p>
+        </div>
+      );
     if (r.tool === "lookup_customer") return <CustomerCard data={data} />;
     if (r.tool === "draft_reply") return <DraftReply data={data} />;
     if (data) return <Facts data={data} />;

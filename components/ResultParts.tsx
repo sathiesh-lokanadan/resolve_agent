@@ -3,13 +3,13 @@ import { BookOpen } from "lucide-react";
 type Row = Record<string, unknown>;
 const money = (n: unknown) => `$${Number(n).toFixed(2)}`;
 
-export function KbChips({ matches }: { matches: { id: string; title: string; score?: number }[] }) {
+export function KbChips({ matches }: { matches: { id: string; title: string; similarity?: number; text?: string }[] }) {
   return (
     <div className="flex flex-wrap gap-2">
       {matches.map((m) => (
-        <span key={m.id} className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs">
+        <span key={m.id} title={m.text} className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs">
           <BookOpen size={12} /> <span className="font-mono text-neutral-500">{m.id}</span> {m.title}
-          {m.score != null && <span className="text-neutral-400">· {m.score}</span>}
+          {m.similarity != null && <span className="text-neutral-400">· {m.similarity.toFixed(2)}</span>}
         </span>
       ))}
     </div>

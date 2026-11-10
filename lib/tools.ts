@@ -1,6 +1,6 @@
 import { ACTION_TOOLS, type ToolEnvelope, type ToolStatus } from "./types";
 import { SOURCES, ageInDays, findArticle, findCustomer, findOrder, findTicket, FIXTURE_NOW } from "./data";
-import { searchKb } from "./kb";
+import { KB_METHOD, KB_SOURCE, KbError, searchKb } from "./kb";
 import {
   checkBug, checkDraft, checkEscalate, checkLookup, checkRefundArgs,
   checkRefundRules, checkRoute, checkSearch, type Checked,
@@ -41,7 +41,7 @@ function rejected(c: Extract<Checked<unknown>, { ok: false }>, source = NO_FIXTU
   return { status: "rejected", source, fixtureId: null, errors: c.errors };
 }
 
-function run(name: string, i: Record<string, unknown>): Outcome {
+async function run(name: string, i: Record<string, unknown>): Promise<Outcome> {
   switch (name) {
     case "route_ticket": {
       const c = checkRoute(i);
@@ -49,15 +49,16 @@ function run(name: string, i: Record<string, unknown>): Outcome {
     }
     case "search_kb": {
       const c = checkSearch(i);
-      if (!c.ok) return rejected(c, SOURCES.articles);
-      const matches = searchKb(c.value.query);
-      if (!matches.length)
-        return {
-          status: "not_found", source: SOURCES.articles, fixtureId: null,
-          message: "No article matched. The policy is not in the knowledge base; do not state one.",
-          data: { matches: [] },
-        };
-      return { status: "ok", source: SOURCES.articles, fixtureId: matches.map((m) => m.id).join(","), data: { matches } };
+      if (!c.ok) return rejected(c, KB_SOURCE);
+      try {
+        const matches = await searchKb(c.value.query);
+        if (!matches.length)
+          return { status: "not_found", source: KB_SOURCE, fixtureId: null, message: "No article was close enough. The policy is not in the knowledge base; do not state one.", data: { method: KB_METHOD, matches: [] } };
+        return { status: "ok", source: KB_SOURCE, fixtureId: matches.map((m) => m.id).join(","), data: { method: KB_METHOD, matches } };
+      } catch (e) {
+        const why = e instanceof KbError ? e.message : "The knowledge-base search failed.";
+        return { status: "error", source: KB_SOURCE, fixtureId: null, message: `${why} No articles were retrieved; do not state any policy from memory.` };
+      }
     }
     case "lookup_customer": {
       const c = checkLookup(i);
@@ -106,7 +107,7 @@ function run(name: string, i: Record<string, unknown>): Outcome {
 }
 
 /** Validates, runs and wraps one tool call. The caller redacts the result. */
-export function runTool(name: string, input: unknown, ctx: ToolContext): ToolEnvelope {
+export async function runTool(name: string, input: unknown, ctx: ToolContext): Promise<ToolEnvelope> {
   const isObject = !!input && typeof input === "object" && !Array.isArray(input);
   const tries = ctx.rejections[name] ?? 0;
   let out: Outcome;
@@ -115,7 +116,7 @@ export function runTool(name: string, input: unknown, ctx: ToolContext): ToolEnv
       out = { status: "rejected", source: NO_FIXTURE, fixtureId: null, message: `${name} was rejected ${MAX_TRIES} times. Stop retrying; explain the problem or call escalate_to_human.` };
     else if (!isObject)
       out = { status: "rejected", source: NO_FIXTURE, fixtureId: null, errors: ["Arguments must be a JSON object."] };
-    else out = run(name, input as Record<string, unknown>);
+    else out = await run(name, input as Record<string, unknown>);
   } catch {
     out = { status: "error", source: NO_FIXTURE, fixtureId: null, message: "The tool failed unexpectedly. No data was returned." };
   }

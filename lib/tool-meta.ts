@@ -2,7 +2,7 @@ import type { ToolName } from "./types";
 
 export const TOOL_META: Record<ToolName, { kind: "read" | "action"; blurb: string }> = {
   route_ticket: { kind: "read", blurb: "Category, urgency and confidence" },
-  search_kb: { kind: "read", blurb: "Top 3 help-centre articles" },
+  search_kb: { kind: "read", blurb: "Vector search, top 3 articles" },
   lookup_customer: { kind: "read", blurb: "Profile, orders, refund history" },
   draft_reply: { kind: "action", blurb: "Cited reply, needs approval" },
   issue_refund: { kind: "action", blurb: "30-day window, 200 USD cap" },
