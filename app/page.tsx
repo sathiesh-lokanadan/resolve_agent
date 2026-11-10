@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import Header from "@/components/Header";
-import ApiKeyBar from "@/components/ApiKeyBar";
+import Sidebar from "@/components/Sidebar";
 import Welcome from "@/components/Welcome";
 import Thread from "@/components/Thread";
+import LogPanel from "@/components/LogPanel";
 import MessageBox from "@/components/MessageBox";
 import { applyEvent, decide, patchMessage, streamResolve, toTurns } from "@/lib/stream";
 import { useApiKey } from "@/lib/useApiKey";
@@ -17,10 +17,12 @@ export default function Page() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
   const abort = useRef<AbortController | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (messages.length === 0) return;
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
 
@@ -59,24 +61,37 @@ export default function Page() {
     abort.current?.abort();
     setMessages([]);
     setDraft("");
+    setLogOpen(false);
   }
 
+  const callCount = messages.reduce((n, m) => n + m.calls.length, 0);
+
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header model={model} onModel={setModel} onNew={newChat} busy={busy} />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-6">
-        {!apiKey && <div className="mb-6"><ApiKeyBar hasKey={false} onSave={setApiKey} onClear={() => setApiKey("")} /></div>}
-        {messages.length === 0 ? <Welcome onPick={setDraft} /> : <Thread messages={messages} onDecide={onDecide} />}
-        <div ref={bottom} />
+    <div className="grid gap-3 p-3 lg:h-dvh lg:grid-cols-[256px_minmax(0,1fr)_360px] lg:overflow-hidden">
+      <Sidebar
+        model={model} onModel={setModel} busy={busy} onNew={newChat}
+        hasKey={!!apiKey} onSaveKey={setApiKey} onClearKey={() => setApiKey("")}
+        callCount={callCount} onOpenLog={() => setLogOpen(true)}
+      />
+
+      <main className="flex min-w-0 flex-col lg:min-h-0">
+        <div className="flex-1 lg:min-h-0 lg:overflow-y-auto">
+          <div className="mx-auto w-full max-w-2xl px-1 py-4">
+            {messages.length === 0 ? <Welcome onPick={setDraft} /> : <Thread messages={messages} onDecide={onDecide} />}
+            <div ref={bottom} />
+          </div>
+        </div>
+        <div className="sticky bottom-0 mx-auto w-full max-w-2xl bg-gradient-to-t from-paper via-paper/90 to-transparent pb-1 pt-4 lg:static lg:bg-none">
+          <MessageBox
+            value={draft} onChange={setDraft} onSend={send} onStop={() => abort.current?.abort()}
+            busy={busy} disabled={!apiKey}
+            placeholder={apiKey ? "Paste a ticket or ask a follow-up…" : "Add your API key in the left panel to start"}
+          />
+        </div>
       </main>
-      <div className="sticky bottom-0 mx-auto w-full max-w-3xl space-y-2 bg-gradient-to-t from-paper via-paper/90 to-transparent px-4 pb-4 pt-6">
-        <MessageBox
-          value={draft} onChange={setDraft} onSend={send} onStop={() => abort.current?.abort()}
-          busy={busy} disabled={!apiKey}
-          placeholder={apiKey ? "Paste a ticket or ask a follow-up…" : "Add your API key above to start"}
-        />
-        {apiKey && <ApiKeyBar hasKey onSave={setApiKey} onClear={() => setApiKey("")} />}
-      </div>
+
+      {logOpen && <div className="fixed inset-0 z-20 bg-black/20 lg:hidden" onClick={() => setLogOpen(false)} />}
+      <LogPanel messages={messages} open={logOpen} onClose={() => setLogOpen(false)} />
     </div>
   );
 }

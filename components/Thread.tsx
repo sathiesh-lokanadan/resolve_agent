@@ -1,33 +1,19 @@
-import { Check, Loader2, Square, TriangleAlert } from "lucide-react";
+import { Loader2, Square, TriangleAlert } from "lucide-react";
 import type { ApprovalState, ChatMessage } from "@/lib/types";
-import ToolCallCard from "./ToolCallCard";
+import ResultCard from "./ResultCard";
 import Markdown from "./Markdown";
-
-function Steps({ m }: { m: ChatMessage }) {
-  if (!m.steps.length) return null;
-  return (
-    <ol className="space-y-1 text-sm text-neutral-500">
-      {m.steps.map((s, i) => {
-        const last = i === m.steps.length - 1;
-        const active = last && m.status === "working";
-        return (
-          <li key={i} className="flex items-center gap-2">
-            {active ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} className="text-emerald-600" />}
-            <span className={active ? "text-ink" : ""}>{s}</span>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
 
 function Assistant({ m, onDecide }: { m: ChatMessage; onDecide: (callId: string, a: ApprovalState) => void }) {
   return (
     <div className="space-y-3">
-      <Steps m={m} />
       {m.calls.map((c) => (
-        <ToolCallCard key={c.id} call={c} onDecide={(a) => onDecide(c.id, a)} />
+        <ResultCard key={c.id} call={c} onDecide={(a) => onDecide(c.id, a)} />
       ))}
+      {m.status === "working" && (
+        <p className="flex items-center gap-2 text-sm text-neutral-500">
+          <Loader2 size={13} className="animate-spin" /> {m.steps[m.steps.length - 1] ?? "Working"}…
+        </p>
+      )}
       {m.text && <div className="card p-5"><Markdown text={m.text} /></div>}
       {m.status === "stopped" && (
         <p className="flex items-center gap-2 text-sm text-neutral-500"><Square size={12} /> Stopped.</p>
