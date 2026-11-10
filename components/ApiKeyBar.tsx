@@ -2,7 +2,15 @@
 import { useState } from "react";
 import { Check, KeyRound } from "lucide-react";
 
-export default function ApiKeyBar({ hasKey, onSave, onClear }: { hasKey: boolean; onSave: (k: string) => void; onClear: () => void }) {
+export default function ApiKeyBar({
+  hasKey, hint, label, onSave, onClear,
+}: {
+  hasKey: boolean;
+  hint: string;
+  label: string;
+  onSave: (k: string) => void;
+  onClear: () => void;
+}) {
   const [draft, setDraft] = useState("");
 
   if (hasKey)
@@ -30,8 +38,8 @@ export default function ApiKeyBar({ hasKey, onSave, onClear }: { hasKey: boolean
           autoComplete="off"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="sk-ant-…"
-          aria-label="Anthropic API key"
+          placeholder={hint}
+          aria-label={label}
           className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-400"
         />
       </div>

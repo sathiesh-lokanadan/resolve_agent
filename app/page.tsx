@@ -7,13 +7,18 @@ import LogPanel from "@/components/LogPanel";
 import MessageBox from "@/components/MessageBox";
 import { applyEvent, decide, patchMessage, streamResolve, toTurns } from "@/lib/stream";
 import { useApiKey } from "@/lib/useApiKey";
-import type { ApprovalState, ChatMessage, ModelId } from "@/lib/types";
+import { DEFAULT_MODEL, MODELS, MODEL_ID_PATTERN, PROVIDER_INFO, PROVIDERS, type ApprovalState, type ChatMessage, type Provider } from "@/lib/types";
 
 const uid = () => crypto.randomUUID();
+const MODELS_HAS = (p: Provider, id: string) => MODELS[p].some((m) => m.id === id);
 
 export default function Page() {
-  const [apiKey, setApiKey] = useApiKey();
-  const [model, setModel] = useState<ModelId>("claude-sonnet-5-5");
+  const [provider, setProvider] = useState<Provider>("anthropic");
+  const [apiKey, setApiKey] = useApiKey(provider);
+  // The chosen model is remembered per provider, so switching back keeps your pick.
+  const [models, setModels] = useState<Record<Provider, string>>({ ...DEFAULT_MODEL });
+  const [customOn, setCustomOn] = useState<Record<Provider, boolean>>(() => Object.fromEntries(PROVIDERS.map((p) => [p, false])) as Record<Provider, boolean>);
+  const model = models[provider];
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -28,9 +33,10 @@ export default function Page() {
 
   async function send() {
     const text = draft.trim();
-    if (!text || busy || !apiKey) return;
+    if (!text || busy || !apiKey || !MODEL_ID_PATTERN.test(model)) return;
     const user: ChatMessage = { id: uid(), role: "user", text, steps: [], calls: [], status: "done" };
-    const reply: ChatMessage = { id: uid(), role: "assistant", text: "", steps: [], calls: [], status: "working" };
+    const via = `${PROVIDER_INFO[provider].label} · ${model}`;
+    const reply: ChatMessage = { id: uid(), role: "assistant", text: "", steps: [], calls: [], status: "working", via };
     const turns = [...toTurns(messages), { role: "user" as const, content: text }];
     const ac = new AbortController();
     abort.current = ac;
@@ -40,7 +46,7 @@ export default function Page() {
     const update = (fn: (m: ChatMessage) => ChatMessage) => setMessages((list) => patchMessage(list, reply.id, fn));
     try {
       await streamResolve({
-        apiKey, model, messages: turns, signal: ac.signal,
+        apiKey, provider, model, messages: turns, signal: ac.signal,
         onEvent: (e) => update((m) => applyEvent(m, e)),
       });
       update((m) => (m.status === "working" ? { ...m, status: "done" } : m));
@@ -69,7 +75,10 @@ export default function Page() {
   return (
     <div className="grid gap-3 p-3 lg:h-dvh lg:grid-cols-[256px_minmax(0,1fr)_360px] lg:overflow-hidden">
       <Sidebar
-        model={model} onModel={setModel} busy={busy} onNew={newChat}
+        provider={provider} onProvider={setProvider}
+        model={model} onModel={(id) => setModels((m) => ({ ...m, [provider]: id }))}
+        custom={customOn[provider] || !MODELS_HAS(provider, model)} onCustom={(on) => setCustomOn((c) => ({ ...c, [provider]: on }))}
+        busy={busy} onNew={newChat}
         hasKey={!!apiKey} onSaveKey={setApiKey} onClearKey={() => setApiKey("")}
         callCount={callCount} onOpenLog={() => setLogOpen(true)}
       />
@@ -84,8 +93,8 @@ export default function Page() {
         <div className="sticky bottom-0 mx-auto w-full max-w-2xl bg-gradient-to-t from-paper via-paper/90 to-transparent pb-1 pt-4 lg:static lg:bg-none">
           <MessageBox
             value={draft} onChange={setDraft} onSend={send} onStop={() => abort.current?.abort()}
-            busy={busy} disabled={!apiKey}
-            placeholder={apiKey ? "Paste a ticket or ask a follow-up…" : "Add your API key in the left panel to start"}
+            busy={busy} disabled={!apiKey || !MODEL_ID_PATTERN.test(model)}
+            placeholder={!apiKey ? "Add your API key in the left panel to start" : !model ? "Enter a model id in the left panel" : "Paste a ticket or ask a follow-up…"}
           />
         </div>
       </main>
