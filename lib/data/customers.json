@@ -1,0 +1,53 @@
+[
+  {
+    "id": "cus_001",
+    "name": "Maya Okafor",
+    "company": "Brightside Bakery",
+    "email": "maya.okafor@brightside-bakery.example",
+    "phone": "+1 415 555 0134",
+    "plan": "Pro (monthly)",
+    "signupDate": "2024-03-12",
+    "country": "US",
+    "orders": [
+      { "id": "ord_1001", "date": "2026-10-30", "amount": 49, "description": "Pro plan, monthly renewal", "status": "paid" },
+      { "id": "ord_1002", "date": "2026-10-30", "amount": 49, "description": "Pro plan, monthly renewal (second identical charge)", "status": "paid" },
+      { "id": "ord_1003", "date": "2026-09-30", "amount": 49, "description": "Pro plan, monthly renewal", "status": "paid" }
+    ],
+    "refunds": [
+      { "id": "ref_901", "orderId": "ord_0900", "amount": 29, "date": "2025-12-04", "reason": "Plan downgrade mid-cycle" }
+    ]
+  },
+  {
+    "id": "cus_002",
+    "name": "Daniel Reyes",
+    "company": "Reyes Logistics",
+    "email": "daniel.reyes@reyes-logistics.example",
+    "phone": "+44 20 7946 0958",
+    "plan": "Business (annual)",
+    "signupDate": "2025-01-20",
+    "country": "GB",
+    "orders": [
+      { "id": "ord_2001", "date": "2026-11-03", "amount": 480, "description": "Business plan, annual", "status": "paid" },
+      { "id": "ord_2000", "date": "2025-11-03", "amount": 450, "description": "Business plan, annual", "status": "paid" }
+    ],
+    "refunds": []
+  },
+  {
+    "id": "cus_003",
+    "name": "Priya Nair",
+    "company": "Nair Dental Group",
+    "email": "priya.nair@nair-dental.example",
+    "phone": "+1 (212) 555-0188",
+    "plan": "Business (monthly)",
+    "signupDate": "2023-08-02",
+    "country": "US",
+    "orders": [
+      { "id": "ord_3001", "date": "2026-10-20", "amount": 99, "description": "Business plan, monthly renewal", "status": "paid" },
+      { "id": "ord_3002", "date": "2026-09-20", "amount": 99, "description": "Business plan, monthly renewal", "status": "paid" },
+      { "id": "ord_3003", "date": "2026-08-20", "amount": 99, "description": "Business plan, monthly renewal", "status": "refunded" }
+    ],
+    "refunds": [
+      { "id": "ref_902", "orderId": "ord_3003", "amount": 99, "date": "2026-08-25", "reason": "Billing error" }
+    ]
+  }
+]
