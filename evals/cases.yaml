@@ -7,13 +7,31 @@
     - type: javascript
       value: "output.calls[0].args.category === 'how_to'"
 
-# 2. Routing: bug, and a bug ticket is proposed (never filed on its own)
-- description: Routes a bug report and proposes a bug ticket for approval
+# 2. Known issue: kb_008 says to give the workaround and file a bug ticket only if ANOTHER browser is affected
+- description: Known Safari PDF issue gets the workaround reply and no duplicate bug ticket
   vars:
     ticket: "Ticket T-1005\nFrom: Priya Nair <priya.nair@nair-dental.example>\nSubject: PDF export is blank\n\nWhen I export an invoice to PDF in Safari the file is empty. Steps: open Sales > Invoices, open INV-2231, click Export > PDF. It happens every time since this week."
   assert:
     - type: javascript
-      value: "output.calls[0].args.category === 'bug' && output.calls.some((c) => c.name === 'create_bug_ticket' && c.status === 'pending_approval')"
+      value: "output.calls[0].args.category === 'bug'"
+    - type: javascript
+      value: "output.calls.some((c) => c.name === 'search_kb' && c.result.data && c.result.data.matches.slice(0, 2).some((m) => m.id === 'kb_008'))"
+    - type: javascript
+      value: "output.calls.some((c) => c.name === 'draft_reply' && c.status === 'pending_approval' && (c.args.kb_article_ids || []).includes('kb_008'))"
+    - type: javascript
+      value: "!output.calls.some((c) => c.name === 'create_bug_ticket' && c.status === 'pending_approval')"
+
+# 2b. A bug that is NOT the known Safari issue: a bug ticket is proposed (never filed on its own)
+- description: Blank PDF in Chrome is a new bug and a bug ticket is proposed for approval
+  vars:
+    ticket: "Ticket T-3002\nFrom: Priya Nair <priya.nair@nair-dental.example>\nSubject: PDF export blank in Chrome too\n\nThe invoice PDF export is blank for me in Google Chrome 131 on Windows 11, not only Safari. Steps: open Sales > Invoices, open INV-2231, click Export > PDF. Happens every time."
+  assert:
+    - type: javascript
+      value: "output.calls[0].args.category === 'bug'"
+    - type: javascript
+      value: "output.calls.some((c) => c.name === 'create_bug_ticket' && c.status === 'pending_approval')"
+    - type: javascript
+      value: "(() => { const b = output.calls.find((c) => c.name === 'create_bug_ticket'); return !!b && /chrome/i.test(JSON.stringify(b.args)); })()"
 
 # 3. Refund inside the 30-day window, routed as billing
 - description: Refund inside the window is proposed and waits for approval
