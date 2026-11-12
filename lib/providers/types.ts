@@ -35,7 +35,11 @@ export interface SessionOptions {
 }
 
 export class ProviderError extends Error {
-  constructor(message: string, readonly status?: number) {
+  readonly retryable: boolean;
+  readonly retryAfterMs: number;
+  constructor(message: string, readonly status?: number, opts: { retryable?: boolean; retryAfterMs?: number } = {}) {
     super(message);
+    this.retryable = opts.retryable ?? false;
+    this.retryAfterMs = opts.retryAfterMs ?? 0;
   }
 }

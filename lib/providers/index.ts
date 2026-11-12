@@ -15,6 +15,7 @@ export function describeError(err: unknown, provider: Provider, apiKey: string):
   let msg: string | undefined;
   if (provider === "anthropic") msg = describeAnthropicError(err);
   else if (err instanceof ProviderError) msg = provider === "openai" ? describeOpenAiError(err) : describeGoogleError(err);
-  msg ??= err instanceof Error ? err.message : "Unexpected error.";
+  // Only errors we know are safe to show pass through; anything else could carry internals.
+  msg ??= err instanceof ProviderError || (err as { name?: string } | null)?.name?.endsWith("APIError") ? (err as Error).message : "Unexpected server error. Try again.";
   return msg.split(apiKey).join("[key]").slice(0, 400);
 }

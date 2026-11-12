@@ -85,7 +85,7 @@ export type RefundVerdict =
   | { kind: "needs_human"; message: string };
 
 /** The refund rules, in plain code: window, order total, then the cap. */
-export function checkRefundRules(order: Order, amount: number, alreadyRefunded: number): RefundVerdict {
+export function checkRefundRules(order: Order, amount: number, alreadyRefunded: number, proposedThisRequest = 0): RefundVerdict {
   const age = ageInDays(order.date);
   const errors: string[] = [];
   if (age > REFUND_WINDOW_DAYS)
@@ -94,10 +94,12 @@ export function checkRefundRules(order: Order, amount: number, alreadyRefunded: 
   if (amount > remaining)
     errors.push(`Amount ${amount} is more than the refundable balance of ${remaining} on ${order.id}.`);
   if (errors.length) return { kind: "reject", errors };
-  if (amount > REFUND_CAP_USD)
+  // The cap counts refunds already proposed in this request, so splitting one big refund into small ones does not get past it.
+  const total = Math.round((amount + proposedThisRequest) * 100) / 100;
+  if (total > REFUND_CAP_USD)
     return {
       kind: "needs_human",
-      message: `Amount ${amount} is over the ${REFUND_CAP_USD} USD cap. Do not retry; call escalate_to_human.`,
+      message: `Amount ${amount}${proposedThisRequest ? ` plus ${proposedThisRequest} already proposed` : ""} is over the ${REFUND_CAP_USD} USD cap. Do not retry; call escalate_to_human.`,
     };
   return { kind: "ok" };
 }

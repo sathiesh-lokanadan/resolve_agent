@@ -7,7 +7,7 @@ import type { ProviderSession, SessionOptions } from "./types";
 const EFFORT_MODELS = new Set(["claude-sonnet-5-5", "claude-haiku-5-5"]);
 
 export function anthropicSession({ apiKey, model, turns, signal }: SessionOptions): ProviderSession {
-  const client = new Anthropic({ apiKey, maxRetries: 1 });
+  const client = new Anthropic({ apiKey, maxRetries: 2 });
   const messages: Anthropic.MessageParam[] = turns.map((t) => ({ role: t.role, content: t.content }));
 
   return {
@@ -47,5 +47,7 @@ export function describeAnthropicError(err: unknown): string | undefined {
   if (err instanceof Anthropic.PermissionDeniedError) return "This API key is not allowed to use that model.";
   if (err instanceof Anthropic.NotFoundError) return "Anthropic does not know that model id.";
   if (err instanceof Anthropic.RateLimitError) return "Rate limited by Anthropic. Wait a moment and try again.";
+  if (err instanceof Anthropic.APIConnectionTimeoutError) return "Anthropic took too long to answer.";
   if (err instanceof Anthropic.APIConnectionError) return "Could not reach the Anthropic API.";
+  if (err instanceof Anthropic.InternalServerError) return "Anthropic is having trouble right now. Try again in a moment.";
 }
