@@ -1,0 +1,24 @@
+# Live evals against the running app. Needs: npm run dev, SUPABASE_* set and the KB seeded (npm run seed:kb).
+#   export GEMINI_API_KEY=...
+#   npx promptfoo eval -c evals/promptfooconfig.google.yaml
+# The cases and assertions are shared (cases.yaml, default-test.yaml) so every provider is scored the same way.
+description: Resolve ticket-resolution agent (resolve-gemini-2.5-flash)
+
+providers:
+  - id: http://localhost:3000/api/resolve
+    label: resolve-gemini-2.5-flash
+    config:
+      method: POST
+      headers:
+        content-type: application/json
+        x-api-key: "{{ env.GEMINI_API_KEY }}"
+      body:
+        provider: google
+        model: gemini-2.5-flash
+        messages:
+          - role: user
+            content: "{{ ticket }}"
+      transformResponse: file://transform.js
+
+defaultTest: file://default-test.yaml
+tests: file://cases.yaml

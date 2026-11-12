@@ -20,21 +20,53 @@ export async function streamResolve(opts: {
     const body = await res.json().catch(() => null);
     throw new Error(body?.error ?? `Request failed (${res.status}).`);
   }
-  const reader = res.body.getReader();
+  await consumeStream(res.body, opts.onEvent, opts.signal);
+}
+
+export const STREAM_IDLE_MS = 60_000;
+
+/**
+ * Read newline-delimited JSON events. Fails loudly (instead of hanging or silently stopping) when
+ * the stream stalls, when lines are corrupt, or when it ends without the final `done` event.
+ */
+export async function consumeStream(
+  body: ReadableStream<Uint8Array>,
+  onEvent: (event: StreamEvent) => void,
+  signal?: AbortSignal,
+  idleMs = STREAM_IDLE_MS,
+) {
+  const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let sawDone = false;
+  let bad = 0;
   const flush = (line: string) => {
     if (!line.trim()) return;
     try {
-      opts.onEvent(JSON.parse(line));
+      const event = JSON.parse(line) as StreamEvent;
+      if (event.type === "done") sawDone = true;
+      onEvent(event);
     } catch {
-      /* skip a malformed line */
+      bad++;
     }
   };
   for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const stalled = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("The server stopped responding. Try again.")), idleMs);
+    });
+    let chunk: ReadableStreamReadResult<Uint8Array>;
+    try {
+      chunk = await Promise.race([reader.read(), stalled]);
+    } catch (err) {
+      reader.cancel().catch(() => {});
+      if (signal?.aborted) throw err;
+      throw err instanceof Error && err.message.startsWith("The server") ? err : new Error("The connection dropped before the answer finished. Try again.");
+    } finally {
+      clearTimeout(timer);
+    }
+    if (chunk.done) break;
+    buffer += decoder.decode(chunk.value, { stream: true });
     let nl: number;
     while ((nl = buffer.indexOf("\n")) >= 0) {
       flush(buffer.slice(0, nl));
@@ -42,6 +74,8 @@ export async function streamResolve(opts: {
     }
   }
   flush(buffer);
+  if (!sawDone) throw new Error("The connection dropped before the answer finished. Try again.");
+  if (bad) throw new Error(`${bad} corrupt event(s) were received. The result may be incomplete; try again.`);
 }
 
 type Patch = (m: ChatMessage) => ChatMessage;

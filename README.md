@@ -35,4 +35,27 @@ Seven tools: `route_ticket`, `search_kb`, `lookup_customer` (read) and `draft_re
 
 ## Layout
 
-`app/page.tsx` chat · `components/` screen parts · `app/api/resolve/route.ts` the route · `lib/` tools, retrieval (`kb.ts`), validators, redactor, agent loop, stream reader, presets · `supabase/` migration and embedding function · `scripts/seed-kb.ts` · `lib/data/` fixtures · `evals/promptfooconfig.yaml` promptfoo cases (not run in CI).
+`app/page.tsx` chat · `components/` screen parts · `app/api/resolve/route.ts` the route · `lib/` tools, retrieval (`kb.ts`), validators, redactor, agent loop, stream reader, presets · `supabase/` migration and embedding function · `scripts/seed-kb.ts` · `lib/data/` fixtures · `tests/` Vitest unit tests and offline evals (run in CI) · `evals/` promptfoo live-model evals (manual).
+
+## Evals, guardrails and failure handling
+
+```bash
+npm test               # 141 deterministic tests: units, agent loop, route, and 20 offline evals. No API key, no network.
+npm run eval:offline   # only the offline evals (tests/evals.test.ts)
+# Live-model evals (needs the app running, a key and the KB seeded):
+npx promptfoo eval -c evals/promptfooconfig.yaml          # Anthropic
+npx promptfoo eval -c evals/promptfooconfig.openai.yaml   # OpenAI
+npx promptfoo eval -c evals/promptfooconfig.google.yaml   # Gemini
+```
+
+**Evals.** CI (`.github/workflows/ci.yml`) runs lint, typecheck, `npm test` and the build. The offline evals drive the real agent loop, tools, validators, redactor and output guard with a scripted model, including models that have been talked into doing the wrong thing (injected refund, invented citations, false "refund issued" claims). The 13 live cases in `evals/cases.yaml` are shared by all three providers, so each is scored the same way. The live cases have not been run in CI because they need API keys and a seeded Supabase.
+
+**Input guardrails** (`lib/request.ts`, `lib/validators.ts`, `lib/tools.ts`): request shape, size caps (40 turns, 12k chars per turn, 60k total, 200 KB body), control characters removed, model id pattern; per-tool argument validation; refund window, balance, 200 USD cap that counts the running total of the request (splitting a refund does not get past it); duplicate refund proposals blocked; draft replies need real KB ids that `search_kb` returned in this conversation, no PII, at most 120 words; 3 tries per tool.
+
+**Output guardrails** (`lib/output-guard.ts`, `lib/redact.ts`): citations of KB ids that were never retrieved are removed; an answer that claims a refund/reply/escalation already happened gets a visible notice (nothing is ever executed); a notice is added when the knowledge base was down and nothing was escalated; PII is redacted in tool args, tool results and the answer. Redaction covers email (including `name [at] host [dot] com`), card numbers, phone numbers, SSN, IBAN, and API keys or bearer tokens.
+
+**Failure handling:** provider calls retry 429/5xx/dropped connections twice with exponential backoff and `Retry-After` (Anthropic via the SDK); KB calls retry once and sit behind a circuit breaker (3 failures, 30 s pause); every tool call has a 20 s timeout; provider failures after tools ran keep the partial tool log and offer a Retry button; empty answers, refusals, blocked prompts, malformed tool-call JSON and non-JSON provider replies become clear errors; the stream always ends with `done`, and the page reports a dropped, stalled or corrupt stream. Unexpected error text is never shown to the page and API keys are scrubbed from every message.
+
+**Observability.** The server writes one JSON log line per event (`request_start`, `tool_call`, `guardrail_output`, `provider_retry`, `kb_breaker_open`, `request_end`...) with a request id (also in the `x-request-id` header). Logs hold metadata only: no ticket text, tool arguments, answers or keys. Set `RESOLVE_LOG=off` to silence them.
+
+**Known limits.** Approvals are page state only; the server never sees them (the queue is simulated, nothing is sent). There is no per-IP rate limiting, and tickets are not screened for injection phrases (the defense is the prompt, the code-level validators and human approval). The ticket text itself is not redacted before the model sees it, because the model needs the customer email to look the customer up.
