@@ -48,7 +48,7 @@ npx promptfoo eval -c evals/promptfooconfig.openai.yaml   # OpenAI
 npx promptfoo eval -c evals/promptfooconfig.google.yaml   # Gemini
 ```
 
-**Evals.** CI (`.github/workflows/ci.yml`) runs lint, typecheck, `npm test` and the build. The offline evals drive the real agent loop, tools, validators, redactor and output guard with a scripted model, including models that have been talked into doing the wrong thing (injected refund, invented citations, false "refund issued" claims). The 13 live cases in `evals/cases.yaml` are shared by all three providers, so each is scored the same way. The live cases have not been run in CI because they need API keys and a seeded Supabase.
+**Evals.** CI (`.github/workflows/ci.yml`) runs lint, typecheck, `npm test` and the build. The offline evals drive the real agent loop, tools, validators, redactor and output guard with a scripted model, including models that have been talked into doing the wrong thing (injected refund, invented citations, false "refund issued" claims). The 14 live cases in `evals/cases.yaml` are shared by all three providers, so each is scored the same way. The live cases have not been run in CI because they need API keys and a seeded Supabase.
 
 **Input guardrails** (`lib/request.ts`, `lib/validators.ts`, `lib/tools.ts`): request shape, size caps (40 turns, 12k chars per turn, 60k total, 200 KB body), control characters removed, model id pattern; per-tool argument validation; refund window, balance, 200 USD cap that counts the running total of the request (splitting a refund does not get past it); duplicate refund proposals blocked; draft replies need real KB ids that `search_kb` returned in this conversation, no PII, at most 120 words; 3 tries per tool.
 
