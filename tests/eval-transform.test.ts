@@ -1,8 +1,15 @@
 import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 
-const transform = createRequire(import.meta.url)("../evals/transform.js") as (j: unknown, t: string) => {
+type Output = {
   answer: string; calls: { name: string; status: string; args: unknown }[]; error?: string; guardrails: string[]; finished: boolean;
+};
+// promptfoo reads `output` (and top-level `error`) from the return value; any other top-level key is ignored.
+const raw = createRequire(import.meta.url)("../evals/transform.js") as (j: unknown, t: string) => { output: Output };
+const transform = (j: unknown, t: string) => {
+  const r = raw(j, t);
+  expect(Object.keys(r)).toEqual(["output"]);
+  return r.output;
 };
 const nd = (...e: object[]) => e.map((x) => JSON.stringify(x)).join("\n") + "\n";
 
