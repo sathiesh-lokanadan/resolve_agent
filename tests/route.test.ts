@@ -8,9 +8,11 @@ vi.mock("@/lib/providers", async (orig) => ({
   createSession: () => state.make!(),
 }));
 
+process.env.RESOLVE_ACCESS_TOKEN = "test-token";
+const { createSession } = await import("@/lib/auth");
 const { POST } = await import("@/app/api/resolve/route");
 
-const post = (body: unknown, headers: Record<string, string> = { "x-api-key": "sk-secret-key-123456789" }) =>
+const post = (body: unknown, headers: Record<string, string> = { "x-api-key": "sk-secret-key-123456789", cookie: `resolve_session=${createSession("Test User")}` }) =>
   POST(new Request("http://localhost/api/resolve", { method: "POST", headers, body: typeof body === "string" ? body : JSON.stringify(body) }));
 const valid = { provider: "anthropic", model: "claude-sonnet-5-5", messages: [{ role: "user", content: "Ticket T-1001 how do I reconnect my bank feed?" }] };
 const events = async (res: Response) => (await res.text()).split("\n").filter(Boolean).map((l) => JSON.parse(l));
@@ -20,8 +22,13 @@ beforeEach(() => {
 });
 
 describe("POST /api/resolve", () => {
+  it("401 without a signed-in session", async () => {
+    const res = await post(valid, { "x-api-key": "sk-secret-key-123456789" });
+    expect(res.status).toBe(401);
+    expect((await res.json()).error).toMatch(/sign in/i);
+  });
   it("401 without an API key", async () => {
-    const res = await post(valid, {});
+    const res = await post(valid, { cookie: `resolve_session=${createSession("Test User")}` });
     expect(res.status).toBe(401);
   });
   it("400 for invalid JSON and invalid bodies, with a request id", async () => {

@@ -2,7 +2,7 @@
 
 A ticket-resolution chatbot for support agents at a cloud accounting provider. A model (Claude, GPT or Gemini, your choice) looks up real (sample) data with tools, every tool call is shown, and a human approves every reply, refund, bug ticket or escalation before anything goes out.
 
-- Next.js (App Router), TypeScript, Tailwind, `@anthropic-ai/sdk` tool use. No database, no login.
+- Next.js (App Router), TypeScript, Tailwind, `@anthropic-ai/sdk` tool use. No database. Sign-in is a full name plus one shared access token.
 - Customers, tickets and the article source text live in typed JSON fixtures in `lib/data/` (3 customers, 12 KB articles, 8 tickets). Customer lookups read those files directly.
 - `search_kb` is RAG: the query is embedded with `gte-small` (a Supabase Edge Function) and the closest articles are found by cosine similarity in Postgres with `pgvector`. The sample "today" is frozen at 2026-11-10 so refund-window checks are repeatable.
 - Pick a provider (Anthropic, OpenAI or Google), a model, and paste your own API key for that provider. Keys stay in `sessionStorage` (one per provider), go to the backend as an `x-api-key` header, and are never saved or logged. Choose "Other model id" to type any model id the provider accepts.
@@ -10,8 +10,13 @@ A ticket-resolution chatbot for support agents at a cloud accounting provider. A
 
 ```bash
 npm install
-npm run dev   # http://localhost:3000
+cp .env.example .env.local   # then set RESOLVE_ACCESS_TOKEN (and the Supabase values below)
+npm run dev                  # http://localhost:3000
 ```
+
+## Sign-in
+
+Users enter their **full name** (shown in the header bar) and the **access token**, which is the same for everyone and is set with the `RESOLVE_ACCESS_TOKEN` environment variable (locally in `.env.local`, on Vercel under Project Settings > Environment Variables). If it is not set, nobody can sign in. A correct token sets a signed, httpOnly, 8-hour cookie; `/api/resolve` returns 401 without it, and Log out clears it and the API keys held in the tab. Changing the token signs everyone out. There is no rate limiting on the sign-in route.
 
 ## Knowledge-base setup (Supabase)
 

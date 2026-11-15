@@ -1,4 +1,5 @@
 import { runAgent } from "@/lib/agent";
+import { readSession } from "@/lib/auth";
 import { log } from "@/lib/log";
 import { createSession, describeError } from "@/lib/providers";
 import { MAX_BODY_BYTES, parseBody } from "@/lib/request";
@@ -11,6 +12,7 @@ const fail = (error: string, status: number, requestId: string) =>
 
 export async function POST(req: Request) {
   const requestId = crypto.randomUUID().slice(0, 8);
+  if (!readSession(req.headers.get("cookie"))) return fail("Please sign in.", 401, requestId);
   const apiKey = req.headers.get("x-api-key")?.trim();
   if (!apiKey) return fail("Add your API key first.", 401, requestId);
   if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) return fail("The request is too large.", 413, requestId);

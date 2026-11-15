@@ -5,6 +5,7 @@ Resolve is a ticket-resolution assistant for support agents. A model (Claude, GP
 ## 1. Setup (about 5 minutes)
 
 - Open the deployed URL (or run locally: `npm install`, `npm run dev`, then open http://localhost:3000).
+- On the sign-in page, enter your **full name** (it appears in the header bar) and the **access token** supplied with this submission.
 - In the key bar at the top, pick a **provider** (Anthropic, OpenAI or Google) and a **model**, then paste your own API key for that provider. The key stays in `sessionStorage` and is never saved or logged.
 - Confirm the knowledge base works by running Test 1 below. If `search_kb` returns an error that says Supabase is missing, the KB is not seeded (`npm run seed:kb`); report this rather than judging the answer quality.
 - Paste each test prompt below into the message box (or click a preset chip where noted) and send.

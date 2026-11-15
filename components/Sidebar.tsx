@@ -1,4 +1,4 @@
-import { CircleCheckBig, Plus, ScrollText } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Plus, ScrollText } from "lucide-react";
 import { MODELS, PROVIDERS, PROVIDER_INFO, type Provider } from "@/lib/types";
 import ApiKeyBar from "./ApiKeyBar";
 
@@ -13,7 +13,7 @@ const rowClass = (active: boolean) =>
 
 export default function Sidebar({
   provider, onProvider, model, onModel, custom, onCustom, busy, onNew,
-  hasKey, onSaveKey, onClearKey, callCount, onOpenLog,
+  hasKey, onSaveKey, onClearKey, callCount, onOpenLog, collapsed, onToggle,
 }: {
   provider: Provider;
   onProvider: (p: Provider) => void;
@@ -28,12 +28,24 @@ export default function Sidebar({
   onClearKey: () => void;
   callCount: number;
   onOpenLog: () => void;
+  collapsed: boolean;
+  onToggle: () => void;
 }) {
   const info = PROVIDER_INFO[provider];
   return (
-    <aside className="card flex flex-col gap-6 p-4 lg:min-h-0 lg:overflow-y-auto">
-      <div className="flex items-center gap-2 font-semibold tracking-tight">
-        <CircleCheckBig size={20} strokeWidth={1.75} /> Resolve
+    <aside className="card flex flex-col lg:min-h-0 lg:overflow-hidden">
+      {/* Narrow rail, desktop only, while the panel is collapsed. */}
+      {collapsed && (
+        <button onClick={onToggle} aria-label="Expand settings panel" title="Expand settings" className="hidden p-3 text-neutral-500 hover:text-ink lg:block">
+          <PanelLeftOpen size={18} />
+        </button>
+      )}
+      <div className={`flex flex-col gap-6 p-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto ${collapsed ? "lg:hidden" : ""}`}>
+      <div className="flex items-center justify-between text-sm font-medium">
+        Settings
+        <button onClick={onToggle} aria-label="Collapse settings panel" title="Collapse" className="hidden text-neutral-400 hover:text-ink lg:block">
+          <PanelLeftClose size={16} />
+        </button>
       </div>
 
       <div className="flex gap-2 lg:flex-col">
@@ -106,6 +118,7 @@ export default function Sidebar({
           Kept in this tab&apos;s sessionStorage and sent only as an x-api-key header, to the provider you chose. Never saved or logged.
         </p>
       </section>
+      </div>
     </aside>
   );
 }
