@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { Check, Loader2, ScrollText, X } from "lucide-react";
+import { Check, Loader2, PanelRightClose, PanelRightOpen, ScrollText, X } from "lucide-react";
 import type { ChatMessage } from "@/lib/types";
 import ToolCallCard from "./ToolCallCard";
+import ToolsPanel from "./ToolsPanel";
 
 function StepList({ m }: { m: ChatMessage }) {
   return (
@@ -21,7 +22,9 @@ function StepList({ m }: { m: ChatMessage }) {
 }
 
 /** The right-hand panel: every step and tool call, in order, with arguments and raw results. */
-export default function LogPanel({ messages, open, onClose }: { messages: ChatMessage[]; open: boolean; onClose: () => void }) {
+export default function LogPanel({
+  messages, open, onClose, collapsed, onToggle,
+}: { messages: ChatMessage[]; open: boolean; onClose: () => void; collapsed: boolean; onToggle: () => void }) {
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     end.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -34,25 +37,34 @@ export default function LogPanel({ messages, open, onClose }: { messages: ChatMe
     <aside
       className={`card flex min-h-0 flex-col overflow-hidden max-lg:fixed max-lg:inset-y-3 max-lg:right-3 max-lg:z-30 max-lg:w-[min(92vw,380px)] ${open ? "" : "max-lg:hidden"}`}
     >
-      <div className="flex items-center gap-2 border-b border-black/5 px-4 py-3 text-sm font-medium">
-        <ScrollText size={15} strokeWidth={1.75} /> Tool log
-        <span className="text-xs font-normal text-neutral-400">{total} {total === 1 ? "call" : "calls"}</span>
-        <button onClick={onClose} aria-label="Close tool log" className="ml-auto text-neutral-500 lg:hidden"><X size={16} /></button>
-      </div>
-      <div className="flex-1 space-y-5 overflow-y-auto p-3">
-        {turns.length === 0 && (
-          <p className="px-1 py-6 text-center text-xs leading-relaxed text-neutral-400">
-            Every step and tool call will appear here, with its arguments, timing and raw result.
-          </p>
-        )}
-        {turns.map((m, i) => (
-          <section key={m.id} className="space-y-2">
-            <div className="truncate px-1 text-[11px] uppercase tracking-wide text-neutral-400">Turn {i + 1}{m.via ? ` · ${m.via}` : ""}</div>
-            <StepList m={m} />
-            {m.calls.map((c) => <ToolCallCard key={c.id} call={c} />)}
-          </section>
-        ))}
-        <div ref={end} />
+      {collapsed && (
+        <button onClick={onToggle} aria-label="Expand tools and trace panel" title="Expand tools and trace" className="hidden p-3 text-neutral-500 hover:text-ink lg:block">
+          <PanelRightOpen size={18} />
+        </button>
+      )}
+      <div className={`flex min-h-0 flex-1 flex-col ${collapsed ? "lg:hidden" : ""}`}>
+        <ToolsPanel />
+        <div className="flex items-center gap-2 border-b border-black/5 px-4 py-3 text-sm font-medium">
+          <ScrollText size={15} strokeWidth={1.75} /> Trace
+          <span className="text-xs font-normal text-neutral-400">{total} {total === 1 ? "call" : "calls"}</span>
+          <button onClick={onClose} aria-label="Close tool log" className="ml-auto text-neutral-500 lg:hidden"><X size={16} /></button>
+          <button onClick={onToggle} aria-label="Collapse tools and trace panel" title="Collapse" className="ml-auto hidden text-neutral-400 hover:text-ink lg:block"><PanelRightClose size={16} /></button>
+        </div>
+        <div className="flex-1 space-y-5 overflow-y-auto p-3">
+          {turns.length === 0 && (
+            <p className="px-1 py-6 text-center text-xs leading-relaxed text-neutral-400">
+              Every step and tool call will appear here, with its arguments, timing and raw result.
+            </p>
+          )}
+          {turns.map((m, i) => (
+            <section key={m.id} className="space-y-2">
+              <div className="truncate px-1 text-[11px] uppercase tracking-wide text-neutral-400">Turn {i + 1}{m.via ? ` · ${m.via}` : ""}</div>
+              <StepList m={m} />
+              {m.calls.map((c) => <ToolCallCard key={c.id} call={c} />)}
+            </section>
+          ))}
+          <div ref={end} />
+        </div>
       </div>
     </aside>
   );

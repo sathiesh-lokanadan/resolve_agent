@@ -1,7 +1,4 @@
 import { PRESETS } from "@/lib/presets";
-import { TOOL_META } from "@/lib/tool-meta";
-import { TOOL_NAMES } from "@/lib/types";
-import ToolIcon from "./ToolIcon";
 
 export default function Welcome({ onPick }: { onPick: (text: string) => void }) {
   return (
@@ -23,21 +20,6 @@ export default function Welcome({ onPick }: { onPick: (text: string) => void }) 
             <span className={`h-2 w-2 rounded-full ${p.dot}`} /> {p.label}
           </button>
         ))}
-      </div>
-
-      <div>
-        <div className="mb-2 text-center text-xs uppercase tracking-wide text-neutral-400">Seven tools</div>
-        <div className="grid grid-cols-2 gap-2 xl:grid-cols-3">
-          {TOOL_NAMES.map((n) => (
-            <div key={n} className="card space-y-1 p-3">
-              <div className="flex items-center gap-1.5 text-neutral-500"><ToolIcon name={n} size={14} />
-                <span className="text-[10px] uppercase tracking-wide">{TOOL_META[n].kind}</span>
-              </div>
-              <div className="font-mono text-xs">{n}</div>
-              <div className="text-xs text-neutral-500">{TOOL_META[n].blurb}</div>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );
