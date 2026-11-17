@@ -6,7 +6,14 @@ import ToolResult, { statusTone } from "./ToolResult";
 import ApprovalCard from "./ApprovalCard";
 
 /** One readable tool result in the chat, with its Approve / Reject buttons when it needs a human. */
-export default function ResultCard({ call, onDecide }: { call: CallView; onDecide: (a: ApprovalState) => void }) {
+export default function ResultCard({
+  call, onDecide, onRetrySlack, agentWorking,
+}: {
+  call: CallView;
+  onDecide: (a: ApprovalState, postToSlack: boolean) => void;
+  onRetrySlack?: () => void;
+  agentWorking?: boolean;
+}) {
   const r = call.result;
   if (!r) return null;
   const title = TOOL_META[call.name as ToolName]?.title ?? call.name;
@@ -18,7 +25,7 @@ export default function ResultCard({ call, onDecide }: { call: CallView; onDecid
         <span className={`rounded-full px-2 py-0.5 text-[11px] ${statusTone(r.status)}`}>{r.status.replace("_", " ")}</span>
       </div>
       <ToolResult result={r} />
-      {call.approval && <ApprovalCard name={call.name} approval={call.approval} onDecide={onDecide} />}
+      {call.approval && <ApprovalCard name={call.name} approval={call.approval} onDecide={onDecide} onRetrySlack={onRetrySlack} waiting={agentWorking} />}
     </div>
   );
 }

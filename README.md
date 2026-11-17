@@ -27,6 +27,17 @@ Users enter their **full name** (shown in the header bar) and the **access token
 
 If Supabase is missing or fails, `search_kb` returns an error that says so; it does not fall back to made-up or keyword results. `KB_MIN_SIMILARITY` (optional) drops weak matches.
 
+## Slack updates (optional, write-only)
+
+When a human approves or rejects an **`issue_refund`** proposal, the app can post one update to a Slack channel through a Slack MCP server. It never reads from Slack.
+
+- The refund approval card has a **Post an update on slack** checkbox, ticked by default. Approving or rejecting with it ticked sends the post; unticking it sends nothing.
+- Nothing is posted for how-tos, reply drafts, bug tickets or escalations, only for the human's decision on a refund. The Approve and Reject buttons on a refund wait until the agent has finished its summary, because the post includes it.
+- The post has the customer query, the agent's case summary, the final decision (and who made it), the refund details (order, customer, amount, reason) and any bug ticket proposed in the same answer, with its `BUG-` id, severity, description and steps. A bug is labelled filed, proposed or rejected, depending on whether it has been approved yet.
+- Text is redacted (email, phone, card and so on) and escaped for Slack before posting, so a ticket cannot ping `@channel`. If the post fails, the card shows the reason and a Retry button.
+
+Setup: create a Slack app with a bot token (`chat:write`, `channels:read`), invite the bot to a channel, then set `SLACK_BOT_TOKEN`, `SLACK_TEAM_ID` and `SLACK_CHANNEL_ID` (see `.env.example`). The server starts `npx -y @modelcontextprotocol/server-slack` per post and calls its `slack_post_message` tool. That package is deprecated by its publisher but still works with a bot token; `SLACK_MCP_COMMAND` and `SLACK_MCP_ARGS` point at another stdio server with the same tool. Starting a process per post needs a host that allows it (local, a container or a VM); it is unlikely to work on serverless platforms such as Vercel. Bug ids (`BUG-1001`, ...) come from an in-memory counter, like approval ids, so they restart when the server does.
+
 ## How it works
 
 `POST /api/resolve` runs the loop (max 8 rounds, 10 tool calls) and streams newline-delimited JSON events: `step`, `tool_start`, `tool_end`, `approval`, `answer`, `error`, `done`.

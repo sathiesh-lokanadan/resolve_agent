@@ -7,6 +7,7 @@ import Thread from "@/components/Thread";
 import LogPanel from "@/components/LogPanel";
 import MessageBox from "@/components/MessageBox";
 import { applyEvent, decide, patchMessage, streamResolve, toTurns } from "@/lib/stream";
+import { buildSlackPayload, sendSlackUpdate } from "@/lib/slack-client";
 import { useApiKey } from "@/lib/useApiKey";
 import { DEFAULT_MODEL, MODELS, MODEL_ID_PATTERN, PROVIDER_INFO, PROVIDERS, type ApprovalState, type ChatMessage, type Provider } from "@/lib/types";
 
@@ -77,8 +78,30 @@ export default function Workspace({ name, onLogout }: { name: string; onLogout: 
     if (last?.role === "user") void send(last.text);
   }
 
-  function onDecide(msgId: string, callId: string, a: ApprovalState) {
+  /** Post one refund decision to Slack and show the outcome on its approval card. */
+  async function postSlack(msgId: string, callId: string, a: ApprovalState) {
+    const payload = buildSlackPayload(messages, msgId, callId, a);
+    if (!payload) return;
+    const setSlack = (slack: ApprovalState["slack"]) =>
+      setMessages((list) => patchMessage(list, msgId, (m) => decide(m, callId, { ...a, slack })));
+    setSlack({ state: "sending" });
+    try {
+      await sendSlackUpdate(payload);
+      setSlack({ state: "posted" });
+    } catch (err) {
+      setSlack({ state: "failed", error: (err as Error).message });
+    }
+  }
+
+  /** Slack is only posted for a human's decision on a refund, never for reply drafts, bugs or escalations. */
+  function onDecide(msgId: string, callId: string, a: ApprovalState, postToSlack: boolean) {
     setMessages((list) => patchMessage(list, msgId, (m) => decide(m, callId, a)));
+    if (postToSlack) void postSlack(msgId, callId, a);
+  }
+
+  function onRetrySlack(msgId: string, callId: string) {
+    const a = messages.find((m) => m.id === msgId)?.calls.find((c) => c.id === callId)?.approval;
+    if (a && a.state !== "pending") void postSlack(msgId, callId, { state: a.state, reason: a.reason });
   }
 
   function newChat() {
@@ -107,7 +130,7 @@ export default function Workspace({ name, onLogout }: { name: string; onLogout: 
       <main className="flex min-w-0 flex-col lg:min-h-0">
         <div className="flex-1 lg:min-h-0 lg:overflow-y-auto">
           <div className="mx-auto w-full max-w-2xl px-1 py-4">
-            {messages.length === 0 ? <Welcome onPick={setDraft} /> : <Thread messages={messages} onDecide={onDecide} onRetry={busy ? undefined : retry} />}
+            {messages.length === 0 ? <Welcome onPick={setDraft} /> : <Thread messages={messages} onDecide={onDecide} onRetrySlack={onRetrySlack} onRetry={busy ? undefined : retry} />}
             <div ref={bottom} />
           </div>
         </div>
