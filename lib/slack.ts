@@ -173,7 +173,7 @@ export async function postToSlack(message: string, post: McpPost = postViaMcp): 
     return why ? { ok: false, status: 502, error: `Slack rejected the post: ${why}` } : { ok: true };
   } catch (e) {
     const notConnected = e instanceof Error && e.name === "SlackNotConnected";
-    const detail = e instanceof Error ? e.message.slice(0, 160) : "";
+    const detail = e instanceof Error ? e.message.slice(0, 500) : "";
     return { ok: false, status: notConnected ? 409 : 502, error: notConnected ? detail : `Could not post through the Slack MCP server${detail ? `: ${detail}` : "."}` };
   } finally {
     clearTimeout(timer);
