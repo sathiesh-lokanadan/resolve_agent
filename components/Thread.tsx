@@ -3,11 +3,11 @@ import type { ApprovalState, ChatMessage } from "@/lib/types";
 import ResultCard from "./ResultCard";
 import Markdown from "./Markdown";
 
-function Assistant({ m, onDecide, onRetry }: { m: ChatMessage; onDecide: (callId: string, a: ApprovalState) => void; onRetry?: () => void }) {
+function Assistant({ m, onDecide, onRetrySlack, onRetry }: { m: ChatMessage; onDecide: (callId: string, a: ApprovalState, postToSlack: boolean) => void; onRetrySlack: (callId: string) => void; onRetry?: () => void }) {
   return (
     <div className="space-y-3">
       {m.calls.map((c) => (
-        <ResultCard key={c.id} call={c} onDecide={(a) => onDecide(c.id, a)} />
+        <ResultCard key={c.id} call={c} onDecide={(a, slack) => onDecide(c.id, a, slack)} onRetrySlack={() => onRetrySlack(c.id)} agentWorking={m.status === "working"} />
       ))}
       {m.status === "working" && (
         <p className="flex items-center gap-2 text-sm text-neutral-500">
@@ -33,10 +33,11 @@ function Assistant({ m, onDecide, onRetry }: { m: ChatMessage; onDecide: (callId
 }
 
 export default function Thread({
-  messages, onDecide, onRetry,
+  messages, onDecide, onRetrySlack, onRetry,
 }: {
   messages: ChatMessage[];
-  onDecide: (msgId: string, callId: string, a: ApprovalState) => void;
+  onDecide: (msgId: string, callId: string, a: ApprovalState, postToSlack: boolean) => void;
+  onRetrySlack: (msgId: string, callId: string) => void;
   onRetry?: () => void;
 }) {
   return (
@@ -49,7 +50,7 @@ export default function Thread({
             </div>
           </div>
         ) : (
-          <Assistant key={m.id} m={m} onDecide={(callId, a) => onDecide(m.id, callId, a)} onRetry={i === messages.length - 1 ? onRetry : undefined} />
+          <Assistant key={m.id} m={m} onDecide={(callId, a, slack) => onDecide(m.id, callId, a, slack)} onRetrySlack={(callId) => onRetrySlack(m.id, callId)} onRetry={i === messages.length - 1 ? onRetry : undefined} />
         ),
       )}
     </div>

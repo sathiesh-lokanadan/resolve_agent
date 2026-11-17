@@ -43,6 +43,7 @@ interface Outcome {
 const NO_FIXTURE = "none (model-supplied values, checked in code)";
 const QUEUE = "simulated approval queue (nothing is sent)";
 let approvalCounter = 0;
+let bugCounter = 1000;
 
 function pending(action: string, fixtureId: string | null, data: Record<string, unknown>): Outcome {
   return {
@@ -121,7 +122,7 @@ async function run(name: string, i: Record<string, unknown>, ctx: ToolContext): 
     }
     case "create_bug_ticket": {
       const c = checkBug(i);
-      return c.ok ? pending("create_bug_ticket", null, c.value) : rejected(c);
+      return c.ok ? pending("create_bug_ticket", null, { bug_id: `BUG-${++bugCounter}`, ...c.value }) : rejected(c);
     }
     case "escalate_to_human": {
       const c = checkEscalate(i);

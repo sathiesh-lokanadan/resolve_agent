@@ -43,9 +43,16 @@ export type StreamEvent =
   | { type: "error"; message: string }
   | { type: "done" };
 
+export interface SlackStatus {
+  state: "sending" | "posted" | "failed";
+  error?: string;
+}
+
 export interface ApprovalState {
   state: "pending" | "approved" | "rejected";
   reason?: string;
+  /** Only for refunds: whether the decision was posted to Slack. Absent when the box was unticked. */
+  slack?: SlackStatus;
 }
 
 export interface CallView {
