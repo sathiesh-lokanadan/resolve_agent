@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { formatSlackMessage, parseSlackUpdate, postToSlack, type SlackUpdate } from "@/lib/slack";
+import { formatSlackMessage, parseSlackUpdate, pickSendTool, postToSlack, type SlackUpdate } from "@/lib/slack";
+import { SlackAuthProvider, SlackNotConnected } from "@/lib/slack-oauth";
 import { buildSlackPayload } from "@/lib/slack-client";
 import { newToolContext, runTool } from "@/lib/tools";
 import type { ChatMessage } from "@/lib/types";
@@ -55,28 +56,65 @@ describe("formatSlackMessage", () => {
 
 describe("postToSlack", () => {
   const env = { ...process.env };
-  beforeEach(() => Object.assign(process.env, { SLACK_BOT_TOKEN: "xoxb-secret-token", SLACK_TEAM_ID: "T1", SLACK_CHANNEL_ID: "C1" }));
+  beforeEach(() => Object.assign(process.env, { SLACK_CLIENT_ID: "1.2", SLACK_CHANNEL_ID: "C1" }));
   afterEach(() => { process.env = { ...env }; });
 
-  it("calls slack_post_message with the channel and text", async () => {
-    const call = vi.fn().mockResolvedValue({ content: [{ type: "text", text: JSON.stringify({ ok: true }) }] });
-    expect(await postToSlack("hi", call)).toEqual({ ok: true });
-    expect(call).toHaveBeenCalledWith("slack_post_message", { channel_id: "C1", text: "hi" });
+  it("posts the text to the configured channel", async () => {
+    const post = vi.fn().mockResolvedValue({ content: [{ type: "text", text: JSON.stringify({ ok: true }) }] });
+    expect(await postToSlack("hi", post)).toEqual({ ok: true });
+    expect(post).toHaveBeenCalledWith("C1", "hi");
   });
   it("reports missing configuration without calling anything", async () => {
     delete process.env.SLACK_CHANNEL_ID;
-    const call = vi.fn();
-    const r = await postToSlack("hi", call);
-    expect(r).toMatchObject({ ok: false, status: 503 });
-    expect(call).not.toHaveBeenCalled();
+    const post = vi.fn();
+    expect(await postToSlack("hi", post)).toMatchObject({ ok: false, status: 503 });
+    expect(post).not.toHaveBeenCalled();
   });
-  it("surfaces Slack's own error and never leaks the token", async () => {
-    const slackErr = vi.fn().mockResolvedValue({ content: [{ type: "text", text: JSON.stringify({ ok: false, error: "channel_not_found" }) }] });
-    expect(await postToSlack("hi", slackErr)).toMatchObject({ ok: false, error: expect.stringContaining("channel_not_found") });
-    const boom = vi.fn().mockRejectedValue(new Error("spawn failed xoxb-secret-token"));
-    const r = await postToSlack("hi", boom);
-    expect(r.ok).toBe(false);
-    expect(JSON.stringify(r)).not.toContain("xoxb-secret-token");
+  it("surfaces Slack's own error", async () => {
+    const post = vi.fn().mockResolvedValue({ content: [{ type: "text", text: JSON.stringify({ ok: false, error: "channel_not_found" }) }] });
+    expect(await postToSlack("hi", post)).toMatchObject({ ok: false, error: expect.stringContaining("channel_not_found") });
+    const flagged = vi.fn().mockResolvedValue({ isError: true, content: [{ type: "text", text: "not_in_channel" }] });
+    expect(await postToSlack("hi", flagged)).toMatchObject({ ok: false, error: expect.stringContaining("not_in_channel") });
+  });
+  it("tells the user to connect Slack when there is no valid token (409)", async () => {
+    const r = await postToSlack("hi", vi.fn().mockRejectedValue(new SlackNotConnected()));
+    expect(r).toMatchObject({ ok: false, status: 409, error: expect.stringContaining("/api/slack/connect") });
+  });
+  it("turns other failures into a 502", async () => {
+    expect(await postToSlack("hi", vi.fn().mockRejectedValue(new Error("boom")))).toMatchObject({ ok: false, status: 502 });
+  });
+});
+
+describe("pickSendTool", () => {
+  const t = (name: string, props: string[]) => ({ name, inputSchema: { properties: Object.fromEntries(props.map((p) => [p, {}])) } });
+  it("finds the send tool and its argument names from the tool list", () => {
+    const tools = [t("slack_search_public", ["query"]), t("slack_send_message_draft", ["channel_id", "message"]), t("slack_send_message", ["channel_id", "message"])];
+    expect(pickSendTool(tools, undefined)).toEqual({ name: "slack_send_message", channelKey: "channel_id", textKey: "message" });
+    expect(pickSendTool([t("slack_post_message", ["channel", "text"])], undefined)).toEqual({ name: "slack_post_message", channelKey: "channel", textKey: "text" });
+  });
+  it("returns null when nothing fits, and honours an override", () => {
+    expect(pickSendTool([t("slack_search_public", ["query"])], undefined)).toBeNull();
+    expect(pickSendTool([t("send_message", ["foo"])], undefined)).toBeNull();
+    expect(pickSendTool([t("custom_tool", ["channel_id", "text"]), t("slack_send_message", ["channel_id", "message"])], "custom_tool")?.name).toBe("custom_tool");
+  });
+});
+
+describe("SlackAuthProvider", () => {
+  const store = (row: object = {}) => ({ load: vi.fn().mockResolvedValue(row), save: vi.fn().mockResolvedValue(undefined) });
+  it("never starts a login during a normal post", () => {
+    const p = new SlackAuthProvider(store(), "http://x/cb", false, { id: "1.2", secret: undefined });
+    expect(() => p.redirectToAuthorization(new URL("https://slack.com/oauth"))).toThrow(SlackNotConnected);
+  });
+  it("keeps the URL, state and verifier of the connect flow in the store", async () => {
+    const s = store({ code_verifier: "v1" });
+    const p = new SlackAuthProvider(s, "http://x/cb", true, { id: "1.2", secret: undefined });
+    p.redirectToAuthorization(new URL("https://slack.com/oauth"));
+    expect(p.authorizationUrl?.host).toBe("slack.com");
+    expect(await p.codeVerifier()).toBe("v1");
+    await p.state();
+    expect(s.save).toHaveBeenCalledWith({ state: expect.any(String) });
+    expect(p.clientInformation()).toEqual({ client_id: "1.2" });
+    expect(p.clientMetadata.token_endpoint_auth_method).toBe("none");
   });
 });
 

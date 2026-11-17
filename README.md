@@ -36,7 +36,14 @@ When a human approves or rejects an **`issue_refund`** proposal, the app can pos
 - The post has the customer query, the agent's case summary, the final decision (and who made it), the refund details (order, customer, amount, reason) and any bug ticket proposed in the same answer, with its `BUG-` id, severity, description and steps. A bug is labelled filed, proposed or rejected, depending on whether it has been approved yet.
 - Text is redacted (email, phone, card and so on) and escaped for Slack before posting, so a ticket cannot ping `@channel`. If the post fails, the card shows the reason and a Retry button.
 
-Setup: create a Slack app with a bot token (`chat:write`, `channels:read`), invite the bot to a channel, then set `SLACK_BOT_TOKEN`, `SLACK_TEAM_ID` and `SLACK_CHANNEL_ID` (see `.env.example`). The server starts `npx -y @modelcontextprotocol/server-slack` per post and calls its `slack_post_message` tool. That package is deprecated by its publisher but still works with a bot token; `SLACK_MCP_COMMAND` and `SLACK_MCP_ARGS` point at another stdio server with the same tool. Starting a process per post needs a host that allows it (local, a container or a VM); it is unlikely to work on serverless platforms such as Vercel. Bug ids (`BUG-1001`, ...) come from an in-memory counter, like approval ids, so they restart when the server does.
+Setup. The app is an MCP client of Slack's hosted server (`https://mcp.slack.com/mcp`, OAuth 2.0); nothing is installed or spawned.
+
+1. Use a Slack app that is internal or Marketplace-published, and ask a workspace admin to approve the MCP integration. Add `https://<your-host>/api/slack/callback` as a redirect URL.
+2. Run `supabase/migrations/002_slack_oauth.sql` (one table that holds the OAuth token).
+3. Set `SLACK_CLIENT_ID` and `SLACK_CHANNEL_ID` (see `.env.example`).
+4. Once, sign in to Resolve and open `/api/slack/connect`. Slack asks you to approve; the token is saved in Supabase. Posts appear as the Slack user who connected, and any signed-in user can reconnect. If a post says Slack is not connected, repeat this step.
+
+The server lists the MCP server's tools and uses its message-sending tool (for example `slack_send_message`), so tool names are not hard-coded; set `SLACK_MCP_TOOL` if several look alike. The token is stored unencrypted in a table only the service role can read. Bug ids (`BUG-1001`, ...) come from an in-memory counter, like approval ids, so they restart when the server does.
 
 ## How it works
 
